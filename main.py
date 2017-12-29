@@ -6,6 +6,7 @@ import logging
 import json
 from telegram.ext import Updater
 from telegram.ext import CommandHandler, Filters, MessageHandler
+from bs4 import BeautifulSoup
 
 CONFIG = {}
 
@@ -61,10 +62,25 @@ def user_id(bot, update):
     return bot.send_message(chat_id=update.message.chat_id, text=update.message.from_user.id)
 
 
+@msg_wrapper
+def get_kancolle_twitter_avatar(bot, update):
+    '''
+        Get the avatar of official Twitter account for Kantai Collection
+    '''
+    html = requests.get('https://twitter.com/KanColle_STAFF')
+    soup = BeautifulSoup(html.text, "html.parser")
+    tag = soup.find_all("a", class_="ProfileAvatar-container")
+    return bot.send_message(chat_id=update.message.chat_id, \
+                text=str(tag[0]['data-resolved-url-large']))
+
+
 def main():
     """
         Main function
     """
+    # set logging
+    logging.basicConfig(level=logging.INFO,
+                    format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
     read_config()
     updater = Updater(CONFIG['bot_token'])
 
@@ -74,6 +90,8 @@ def main():
 
     # Handle `/user-id`
     updater.dispatcher.add_handler(CommandHandler('user_id', user_id))
+    # Handle `/kancolle-avatar`
+    updater.dispatcher.add_handler(CommandHandler('kancolle_avatar', get_kancolle_twitter_avatar))
 
     # Handle group message
     group_handler = MessageHandler(Filters.group, group)
@@ -82,7 +100,4 @@ def main():
     updater.start_polling()
 
 if __name__ == '__main__':
-    # set logging
-    logging.basicConfig(level=logging.INFO,
-                    format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
     main()
