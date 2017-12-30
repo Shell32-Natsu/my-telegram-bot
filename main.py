@@ -1,12 +1,17 @@
 #! /usr/bin/env python3
 # coding=utf-8
 
-import requests
+import sys
+import os
 import logging
 import json
+import requests
+import importlib
 from telegram.ext import Updater
 from telegram.ext import CommandHandler, Filters, MessageHandler
 from bs4 import BeautifulSoup
+
+Daemon = importlib.import_module('daemon')
 
 CONFIG = {}
 
@@ -54,7 +59,7 @@ def group(bot, update):
     """
     return bot.send_message(chat_id=update.message.chat_id, text=update.message.text)
 
-@msg_wrapper
+
 def user_id(bot, update):
     '''
         Handle `/user-id` command
@@ -78,9 +83,6 @@ def main():
     """
         Main function
     """
-    # set logging
-    logging.basicConfig(level=logging.INFO,
-                    format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
     read_config()
     updater = Updater(CONFIG['bot_token'])
 
@@ -99,5 +101,46 @@ def main():
 
     updater.start_polling()
 
+class BotDaemon(Daemon.Daemon):
+    def run(self):
+        main()
+
+
+usage = 'main.py {start|status|restart|stop}'
 if __name__ == '__main__':
-    main()
+    # set logging
+    logging.basicConfig(level=logging.ERROR,
+                    format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
+    if len(sys.argv) < 2:
+        print(usage)
+        exit(0)
+
+    # Daemon
+    daemon = BotDaemon('/tmp/tg_bot_0x590F_test.pid')
+
+    operation = sys.argv[1]
+    if operation == "status":
+        print("Viewing daemon status")
+        pid = daemon.get_pid()
+
+        if not pid:
+            print("Daemon isn't running ;)")
+        else:
+            print("Daemon is running [PID=%d]" % pid)
+    elif operation == "start":
+        print('Starting bot...')
+        daemon.start()
+        pid = daemon.get_pid()
+
+        if not pid:
+            print("Unable run daemon")
+        else:
+            print("Daemon is running [PID=%d]" % pid)
+    elif operation == 'stop':
+        print("Stoping daemon")
+        daemon.stop()
+    elif operation == 'restart':
+        print("Restarting daemon")
+        daemon.restart()
+    else:
+        print(usage)
