@@ -7,14 +7,16 @@ import logging
 import json
 import requests
 import importlib
+import time
 from telegram.ext import Updater
 from telegram.ext import CommandHandler, Filters, MessageHandler
 from bs4 import BeautifulSoup
+from tinydb import TinyDB, Query
 
 Daemon = importlib.import_module('daemon')
 
 CONFIG = {}
-
+DB = ''
 
 def read_config():
     """
@@ -23,7 +25,9 @@ def read_config():
     global CONFIG
     with open("config.json", "r") as file:
         CONFIG = json.load(file)
+
     logging.debug("CONFIG: %s" % CONFIG)
+
 
 def msg_wrapper(func):
     def wrapper(*args, **kwargs):
@@ -52,13 +56,6 @@ def start(bot, update):
     """
     return bot.send_message(chat_id=update.message.chat_id, text="I'm a bot, please talk to me!")
 
-@msg_wrapper
-def group(bot, update):
-    """
-        Handle messages from group
-    """
-    return bot.send_message(chat_id=update.message.chat_id, text=update.message.text)
-
 
 def user_id(bot, update):
     '''
@@ -79,11 +76,30 @@ def get_kancolle_twitter_avatar(bot, update):
                 text=str(tag[0]['data-resolved-url-large']))
 
 
+@msg_wrapper
+def db_status(bot, update):
+    '''
+        Handle `/db-status` command
+    '''
+    db_name = "db-default.json"
+    if 'db_name' in CONFIG:
+        db_name = CONFIG['db_name']
+    response_msg = 'Database name: %s\nDatabase file size: %s\nLast modified time: %s'\
+         % (db_name, os.path.getsize(db_name), time.strftime("%d %b %Y %H:%M:%S", time.localtime(os.path.getmtime(db_name))))
+    return bot.send_message(chat_id=update.message.chat_id, \
+                text=response_msg)
+
+
 def main():
     """
         Main function
     """
     read_config()
+    db_name = "db-default.json"
+    if 'db_name' in CONFIG:
+        db_name = CONFIG['db_name']
+    DB = TinyDB(db_name)
+
     updater = Updater(CONFIG['bot_token'])
 
     # Handle `/start`
@@ -94,10 +110,8 @@ def main():
     updater.dispatcher.add_handler(CommandHandler('user_id', user_id))
     # Handle `/kancolle-avatar`
     updater.dispatcher.add_handler(CommandHandler('kancolle_avatar', get_kancolle_twitter_avatar))
-
-    # Handle group message
-    group_handler = MessageHandler(Filters.group, group)
-    updater.dispatcher.add_handler(group_handler)
+    # Handle `/db-satatus`
+    updater.dispatcher.add_handler(CommandHandler('db_status', db_status))
 
     updater.start_polling()
 
@@ -108,15 +122,26 @@ class BotDaemon(Daemon.Daemon):
 
 usage = 'main.py {start|status|restart|stop}'
 if __name__ == '__main__':
-    # set logging
-    logging.basicConfig(level=logging.ERROR,
-                    format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
     if len(sys.argv) < 2:
         print(usage)
         exit(0)
-
-    # Daemon
-    daemon = BotDaemon('/tmp/tg_bot_0x590F_test.pid')
+    
+    debug = False
+    if len(sys.argv) == 3 and sys.argv[2] == '-d':
+        debug = True
+    
+    # set logging
+    if debug:
+        logging.basicConfig(level=logging.INFO,
+                    format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
+        # Daemon
+        daemon = BotDaemon('/tmp/tg_bot_0x590F_test.pid', stderr='bot-err.log')
+        logging.info('Debug mode.')
+    else:
+        logging.basicConfig(level=logging.ERROR,
+                    format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
+        # Daemon
+        daemon = BotDaemon('/tmp/tg_bot_0x590F_test.pid', stderr='bot-err.log')
 
     operation = sys.argv[1]
     if operation == "status":

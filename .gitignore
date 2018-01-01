@@ -2,3 +2,4 @@ config.json
 .vscode
 *.log
 __pycache__
+db.json
