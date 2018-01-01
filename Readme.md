@@ -19,6 +19,7 @@ This is a Telegram bot based on the project [python-telegram-bot](https://github
  - python-telegram-bot
  - tinydb
  - importlib
+ - pytz
 
  # Config file example
 
