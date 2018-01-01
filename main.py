@@ -72,8 +72,15 @@ def get_kancolle_twitter_avatar(bot, update):
     html = requests.get('https://twitter.com/KanColle_STAFF')
     soup = BeautifulSoup(html.text, "html.parser")
     tag = soup.find_all("a", class_="ProfileAvatar-container")
+    image_url = str(tag[0]['data-resolved-url-large'])
+
+    head = requests.head(image_url)
+    last_modified_time_str = 'Unknown'
+    if 'last-modified' in head.headers:
+        last_modified_time_str = head.headers['last-modified']
+
     return bot.send_message(chat_id=update.message.chat_id, \
-                text=str(tag[0]['data-resolved-url-large']))
+                text='Avatar: %s\nLast modified: %s' % (image_url, last_modified_time_str))
 
 
 @msg_wrapper
