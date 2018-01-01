@@ -79,7 +79,7 @@ def get_kancolle_twitter_avatar(bot, update):
 @msg_wrapper
 def db_status(bot, update):
     '''
-        Handle `/db-status` command
+        Handle `/db_status` command
     '''
     db_name = "db-default.json"
     if 'db_name' in CONFIG:
@@ -88,6 +88,47 @@ def db_status(bot, update):
          % (db_name, os.path.getsize(db_name), time.strftime("%d %b %Y %H:%M:%S", time.localtime(os.path.getmtime(db_name))))
     return bot.send_message(chat_id=update.message.chat_id, \
                 text=response_msg)
+
+
+@msg_wrapper
+def imgur_upload(bot, update):
+    '''
+        Handle `/imgur_upload` command
+    '''
+    for key in ('imgur_client_refresh_token', 'imgur_client_id', 'imgur_client_secret'):
+        if key not in CONFIG:
+            return bot.send_message(chat_id=update.message.chat_id, text='No %s in config' % key)
+    
+    commands = update.message.text.split(' ')
+    logging_msg = 'Commands: %s' % commands
+    logging.info(logging_msg)
+    if len(commands) != 2:
+        return bot.send_message(chat_id=update.message.chat_id,  \
+                text='Usage:\n`/imgur_upload URL`', parse_mode='Markdown')
+
+    response = requests.post('https://api.imgur.com/oauth2/token', \
+        data={
+            'refresh_token': CONFIG['imgur_client_refresh_token'],
+            'client_id': CONFIG['imgur_client_id'],
+            'client_secret': CONFIG['imgur_client_secret'],
+            'grant_type': 'refresh_token'
+        })
+    logging_msg = 'Response:\n%s' % response.text
+    logging.info(logging_msg)
+    access_token = json.loads(response.text)['access_token']
+
+    response = requests.post('https://api.imgur.com/3/image', data={
+        'image': commands[1]
+    }, headers={
+        'Authorization': 'Bearer %s' % access_token
+    })
+    logging_msg = 'Response:\n%s' % response.text
+    logging.info(logging_msg)
+    response_json = json.loads(response.text)
+    if response_json['success'] == 'flase':
+        return bot.send_message(chat_id=update.message.chat_id, text=response_json['data']['error'])
+
+    return bot.send_message(chat_id=update.message.chat_id, text=response_json['data']['link'])
 
 
 def main():
@@ -106,12 +147,14 @@ def main():
     start_handler = CommandHandler('start', start)
     updater.dispatcher.add_handler(start_handler)
 
-    # Handle `/user-id`
+    # Handle `/user_id`
     updater.dispatcher.add_handler(CommandHandler('user_id', user_id))
-    # Handle `/kancolle-avatar`
+    # Handle `/kancolle_avatar`
     updater.dispatcher.add_handler(CommandHandler('kancolle_avatar', get_kancolle_twitter_avatar))
-    # Handle `/db-satatus`
+    # Handle `/db_status`
     updater.dispatcher.add_handler(CommandHandler('db_status', db_status))
+    # Handle `/imgur_upload`
+    updater.dispatcher.add_handler(CommandHandler('imgur_upload', imgur_upload))
 
     updater.start_polling()
 
@@ -134,14 +177,12 @@ if __name__ == '__main__':
     if debug:
         logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
-        # Daemon
-        daemon = BotDaemon('/tmp/tg_bot_0x590F_test.pid', stderr='bot-err.log')
         logging.info('Debug mode.')
     else:
         logging.basicConfig(level=logging.ERROR,
                     format='[%(asctime)s][%(name)s][%(pathname)s:%(lineno)s][%(levelname)s][%(message)s]')
-        # Daemon
-        daemon = BotDaemon('/tmp/tg_bot_0x590F_test.pid', stderr='bot-err.log')
+    # Daemon
+    daemon = BotDaemon('/tmp/tg_bot_0x590F_test.pid', stderr='bot-err.log')
 
     operation = sys.argv[1]
     if operation == "status":
