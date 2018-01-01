@@ -5,9 +5,10 @@ import sys
 import os
 import logging
 import json
-import requests
 import importlib
 import time
+import datetime
+import requests
 from telegram.ext import Updater
 from telegram.ext import CommandHandler, Filters, MessageHandler
 from bs4 import BeautifulSoup
@@ -78,9 +79,18 @@ def get_kancolle_twitter_avatar(bot, update):
     last_modified_time_str = 'Unknown'
     if 'last-modified' in head.headers:
         last_modified_time_str = head.headers['last-modified']
+        last_modified_time = datetime.datetime.strptime(last_modified_time_str, "%a, %d %b %Y %H:%M:%S %Z")
+        last_modified_time_local = last_modified_time.astimezone()
+        last_modified_time_japan = last_modified_time.astimezone(tz='JST')
+    
+    return_text = 'Avatar: %s\nLast modified GMT: %s' % (image_url, last_modified_time_str)
+    if last_modified_time_str != 'Unknown':
+        return_text += '\nServer time: %s\nJapan time: %s\n' % \
+            (last_modified_time_local.strftime("%a, %d %b %Y %H:%M:%S %Z"), \
+             last_modified_time_japan.strftime("%a, %d %b %Y %H:%M:%S %Z"))
 
     return bot.send_message(chat_id=update.message.chat_id, \
-                text='Avatar: %s\nLast modified: %s' % (image_url, last_modified_time_str))
+                text=return_text)
 
 
 @msg_wrapper
