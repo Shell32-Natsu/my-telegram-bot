@@ -13,6 +13,7 @@ from telegram.ext import Updater
 from telegram.ext import CommandHandler, Filters, MessageHandler
 from bs4 import BeautifulSoup
 from tinydb import TinyDB, Query
+import pytz
 
 Daemon = importlib.import_module('daemon')
 
@@ -80,9 +81,10 @@ def get_kancolle_twitter_avatar(bot, update):
     if 'last-modified' in head.headers:
         last_modified_time_str = head.headers['last-modified']
         last_modified_time = datetime.datetime.strptime(last_modified_time_str, "%a, %d %b %Y %H:%M:%S %Z")
+        last_modified_time = last_modified_time.replace(tzinfo=pytz.utc)
         last_modified_time_local = last_modified_time.astimezone()
-        last_modified_time_japan = last_modified_time.astimezone(tz='JST')
-    
+        last_modified_time_japan = last_modified_time.astimezone(tz=pytz.timezone('Japan'))
+
     return_text = 'Avatar: %s\nLast modified GMT: %s' % (image_url, last_modified_time_str)
     if last_modified_time_str != 'Unknown':
         return_text += '\nServer time: %s\nJapan time: %s\n' % \
