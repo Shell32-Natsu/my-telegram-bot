@@ -11,6 +11,7 @@ import datetime
 import requests
 from telegram.ext import Updater
 from telegram.ext import CommandHandler, Filters, MessageHandler
+import telegram
 from bs4 import BeautifulSoup
 from tinydb import TinyDB, Query
 import pytz
@@ -144,10 +145,36 @@ def imgur_upload(bot, update):
     logging_msg = 'Response:\n%s' % response.text
     logging.info(logging_msg)
     response_json = json.loads(response.text)
-    if response_json['success'] == 'flase':
-        return bot.send_message(chat_id=update.message.chat_id, text=response_json['data']['error'])
+    try:
+        if response_json['success'] == 'flase':
+            return bot.send_message(chat_id=update.message.chat_id, text=response_json['data']['error'])
 
-    return bot.send_message(chat_id=update.message.chat_id, text=response_json['data']['link'])
+        return bot.send_message(chat_id=update.message.chat_id, text=response_json['data']['link'])
+    except KeyError:
+        return bot.send_message(chat_id=update.message.chat_id, text='Error while parsing response.')
+
+
+def error_callback(bot, update, error):
+    try:
+        raise error
+    except telegram.error.Unauthorized:
+        # remove update.message.chat_id from conversation list
+        logging.error('Unauthorized')
+    except telegram.error.BadRequest:
+        # handle malformed requests - read more below!
+        logging.error('BadRequest')
+    except telegram.error.TimedOut:
+        # handle slow connection problems
+        logging.error('TimedOut')
+    except telegram.error.NetworkError:
+        # handle other connection problems
+        logging.error('NetworkError')
+    except telegram.error.ChatMigrated as e:
+        # the chat_id of a group has changed, use e.new_chat_id instead
+        logging.error('ChatMigrated')
+    except telegram.error.TelegramError:
+        # handle all other telegram related errors
+        logging.error('TelegramError')
 
 
 def main():
@@ -174,6 +201,9 @@ def main():
     updater.dispatcher.add_handler(CommandHandler('db_status', db_status))
     # Handle `/imgur_upload`
     updater.dispatcher.add_handler(CommandHandler('imgur_upload', imgur_upload))
+
+    # Register error handler
+    updater.dispatcher.add_error_handler(error_callback)
 
     updater.start_polling()
 
