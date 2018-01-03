@@ -145,8 +145,9 @@ def imgur_upload(bot, update):
     logging_msg = 'Response:\n%s' % response.text
     logging.info(logging_msg)
     response_json = json.loads(response.text)
+
     try:
-        if response_json['success'] == 'flase':
+        if response_json['success'] == 'false':
             return bot.send_message(chat_id=update.message.chat_id, text=response_json['data']['error'])
 
         return bot.send_message(chat_id=update.message.chat_id, text=response_json['data']['link'])
